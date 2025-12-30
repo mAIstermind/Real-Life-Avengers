@@ -1,0 +1,194 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Real Life Avengers - Multiverse Comic Gen</title>
+    <meta name="theme-color" content="#DC2626">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/color/192/avengers.png">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Comic+Neue:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        --page-height: min(80vh, 750px);
+        --page-width: calc(var(--page-height) * 0.666);
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-color: #000;
+        background-image: radial-gradient(#222 15%, transparent 16%), radial-gradient(#222 15%, transparent 16%);
+        background-size: 60px 60px;
+        background-position: 0 0, 30px 30px;
+        z-index: -1;
+        pointer-events: none;
+      }
+
+      body {
+        min-height: 100vh;
+        font-family: 'Comic Neue', sans-serif;
+        margin: 0;
+        background-color: #000;
+        color: white;
+      }
+      
+      @media (min-width: 769px) {
+        body { overflow-x: hidden; }
+      }
+
+      .font-comic { font-family: 'Bangers', cursive; }
+
+      .comic-scene {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        perspective: 3500px;
+        min-width: 100vw;
+      }
+
+      .book {
+        position: relative;
+        width: var(--page-width);
+        height: var(--page-height);
+        transform-style: preserve-3d;
+        transition: transform 0.5s ease;
+      }
+      
+      .book.opened { transform: translateX(25%); }
+      @media (min-width: 1000px) {
+          .book.opened { transform: translateX(calc(var(--page-width) / 2)); }
+      }
+
+      .paper {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        transform-origin: left center;
+        transform-style: preserve-3d;
+        transition: transform 0.8s cubic-bezier(0.645, 0.045, 0.355, 1.000);
+        cursor: pointer;
+      }
+
+      .paper.flipped { transform: rotateY(-180deg); }
+
+      .front, .back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        -webkit-backface-visibility: hidden;
+        overflow: hidden;
+        background-color: #0a0a0a;
+        transform-style: preserve-3d;
+      }
+
+      .front {
+         padding-left: 6px; 
+         box-shadow: inset 25px 0 40px -20px rgba(0,0,0,0.6);
+      }
+      
+      .back {
+        transform: rotateY(180deg);
+        padding-right: 6px;
+        box-shadow: inset -25px 0 40px -20px rgba(0,0,0,0.6);
+      }
+
+      .gloss {
+        position: absolute;
+        inset: 0;
+        background: 
+            linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 65%),
+            linear-gradient(to bottom, rgba(255,255,255,0.05) 0%, transparent 15%);
+        pointer-events: none; 
+        z-index: 30;
+        mix-blend-mode: screen;
+        opacity: 0.8;
+      }
+
+      .panel-container {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #fff;
+        padding: 12px;
+        box-sizing: border-box;
+      }
+
+      .panel-image {
+        width: 100%;
+        height: 100%;
+        object-fit: contain; 
+        display: block;
+        pointer-events: none;
+        background-color: #fff; 
+      }
+
+      .paper:first-child .front {
+         padding-left: 0;
+         box-shadow: none;
+      }
+      .paper:first-child .front::before {
+          content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 14px;
+          background: linear-gradient(to right, #0a0a0a, #333 20%, #666 30%, #333 50%, #0a0a0a 100%);
+          border-right: 1px solid #000;
+          z-index: 25; 
+      }
+
+      .comic-btn {
+        font-family: 'Bangers', cursive;
+        letter-spacing: 1.5px;
+        border: 3px solid black;
+        box-shadow: 5px 5px 0px black;
+        transition: all 0.1s ease;
+        text-transform: uppercase;
+        cursor: pointer;
+      }
+      .comic-btn:hover:not(:disabled) { transform: translate(-2px, -2px); box-shadow: 7px 7px 0px black; }
+      .comic-btn:active:not(:disabled) { transform: translate(3px, 3px); box-shadow: 2px 2px 0px black; }
+
+      @media (max-width: 768px) {
+        :root { 
+             --page-height: min(75vh, 130vw);
+             --page-width: calc(var(--page-height) * 0.666);
+        }
+        .book.opened { transform: translateX(100%); }
+      }
+    </style>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW registration failed:', err));
+        });
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.27.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "recharts": "https://aistudiocdn.com/recharts@^3.3.0",
+    "jspdf": "https://aistudiocdn.com/jspdf@^3.0.3"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
