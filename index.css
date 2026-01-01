@@ -23,14 +23,44 @@
     }
 }
 
-.animate-scan-line {
-    animation: scan-line 2.5s linear infinite;
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
 }
 
-.animate-loading-bar {
-    animation: loading-bar 12s cubic-bezier(0.1, 0, 0.2, 1) forwards;
+@keyframes float-slow {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(30px, -30px); }
 }
 
-.animate-panel-pop {
-    animation: panel-pop 0.9s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+@keyframes float-slower {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(-40px, 20px); }
+}
+
+@keyframes dust {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    50% { opacity: 0.5; }
+    100% { transform: translateY(-100vh) translateX(50px); opacity: 0; }
+}
+
+.animate-scan-line { animation: scan-line 2.5s linear infinite; }
+.animate-loading-bar { animation: loading-bar 12s cubic-bezier(0.1, 0, 0.2, 1) forwards; }
+.animate-panel-pop { animation: panel-pop 0.9s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+.animate-float { animation: float 4s ease-in-out infinite; }
+.animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
+.animate-float-slower { animation: float-slower 12s ease-in-out infinite; }
+.animate-dust {
+    background-image: radial-gradient(circle, #fff 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: dust 10s linear infinite;
+}
+
+/* Custom Hide Scrollbar but keep functionality */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
 }

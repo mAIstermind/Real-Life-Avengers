@@ -19,14 +19,14 @@ export const LegalFooter: React.FC = () => {
   const contents: Record<string, React.ReactNode> = {
     privacy: (
       <>
-        <p><strong>Dossier Sensitivity:</strong> Your biometric data (photos) are processed exclusively for the generation of your heroic multiverse timeline. We do not store, sell, or share your likeness with Hydra or any other malicious third parties.</p>
+        <p><strong>Dossier Sensitivity:</strong> Your biometric data (photos) are processed exclusively for the generation of your heroic multiverse timeline. We do not store, sell, or share your likeness with malicious third parties.</p>
         <p><strong>Mystical Tracking:</strong> We use minimal cookies to ensure your API session remains secure. Your prompts are strictly used for generative creativity.</p>
       </>
     ),
     terms: (
       <>
-        <p><strong>Heroic Code:</strong> By using Real Life Avengers, you agree to use your new mystical powers for good. Harassment, deepfakes of public figures, or non-heroic behavior is grounds for immediate banishment to the Negative Zone.</p>
-        <p><strong>Multiverse Liability:</strong> Real Life Avengers is not responsible for any actual incursions or temporal shifts caused by the infinite storytelling engine.</p>
+        <p><strong>Heroic Code:</strong> By using Real Life SuperHeroes, you agree to use your new mystical powers for good. Harassment, deepfakes of public figures, or non-heroic behavior is grounds for immediate banishment from our servers.</p>
+        <p><strong>Multiverse Liability:</strong> Real Life SuperHeroes is not responsible for any actual incursions or temporal shifts caused by the infinite storytelling engine.</p>
       </>
     ),
     install: (
@@ -38,11 +38,12 @@ export const LegalFooter: React.FC = () => {
     ),
     manual: (
       <>
-        <p><strong>1. Recruitment:</strong> Upload a clear photo of your Primary Hero and optional Sidekick.</p>
-        <p><strong>2. Mission Briefing:</strong> Select a Theme and Tone. Use "I'm Feeling Lucky" for 40+ pre-written destinies.</p>
-        <p><strong>3. Assemble:</strong> Hit the Assemble button. Wait for the mystical powers to ink your pages.</p>
-        <p><strong>4. Interactive Fate:</strong> Turn pages by clicking. Some pages offer choices that shift your narrative.</p>
-        <p><strong>5. Archive:</strong> Download your finished adventure as a high-quality PDF.</p>
+        <p><strong>1. Recruitment:</strong> Upload a clear photo of your Primary Hero and optional Sidekick. Our AI uses this to maintain your likeness across the multiverse.</p>
+        <p><strong>2. The Challenge (Nemesis):</strong> Every story needs friction. This field is flexible: you can enter a specific villain name OR a real-life challenge like "Grief," "Procrastination," or "Career Burnout." The AI will personify or manifest this obstacle in your story.</p>
+        <p><strong>3. Mission Briefing:</strong> Select a Theme (Genre) and Tone. Use the "🎲 LUCK" button to explore 40+ unique destiny seeds.</p>
+        <p><strong>4. Assemble:</strong> Hit the Assemble button. Our high-reasoning engine will ink your personalized pages in real-time.</p>
+        <p><strong>5. Interactive Fate:</strong> Turn pages by clicking. Look for the "✨ ANIMATE" button on panels to bring the scene to life with cinematic motion.</p>
+        <p><strong>6. Archive:</strong> Once your journey is complete, download the high-quality PDF archive for your personal records.</p>
       </>
     )
   };

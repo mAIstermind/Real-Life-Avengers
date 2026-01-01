@@ -6,8 +6,22 @@ export const BATCH_SIZE = 6;
 export const DECISION_PAGES = [3];
 
 export type UserPlan = 'free' | 'individual' | 'agency';
+export type DashboardTheme = 'noir' | 'pixar' | 'cyber' | 'western';
 
-export const GENRES = ["Superhero Action", "Classic Horror", "Dark Sci-Fi", "High Fantasy", "Neon Noir Detective", "Wasteland Apocalypse", "Lighthearted Comedy", "Teen Drama / Slice of Life", "Custom"];
+export const GENRES = [
+  "Superhero Action", 
+  "Classic Horror", 
+  "Dark Sci-Fi", 
+  "High Fantasy", 
+  "Neon Noir Detective", 
+  "Wasteland Apocalypse", 
+  "Lighthearted Comedy", 
+  "Teen Drama / Slice of Life", 
+  "Pixar-Style Adventure",
+  "Whimsical Children's Book",
+  "Custom"
+];
+
 export const TONES = [
     "ACTION-HEAVY (Short, punchy dialogue. Focus on kinetics.)",
     "INNER-MONOLOGUE (Heavy captions revealing thoughts.)",
@@ -24,10 +38,10 @@ export const LANGUAGES = [
     { code: 'es-MX', name: 'Spanish (Mexico)' },
     { code: 'fr-FR', name: 'French (France)' },
     { code: 'hi-IN', name: 'Hindi (India)' },
-    { code: 'id-ID', name: 'Indonesian (Indonesia)' },
+    { code: 'id-ID', name: 'Indonesian (Indonesian)' },
     { code: 'it-IT', name: 'Italian (Italy)' },
-    { code: 'ja-JP', name: 'Japanese (Japan)' },
-    { code: 'ko-KR', name: 'Korean (South Korea)' },
+    { code: 'ja-JP', name: 'Japanese (Japanese)' },
+    { code: 'ko-KR', name: 'Korean (South Korean)' },
     { code: 'pt-BR', name: 'Portuguese (Brazil)' },
     { code: 'ru-RU', name: 'Russian (Russia)' },
     { code: 'ua-UA', name: 'Ukrainian (Ukraine)' },
@@ -54,11 +68,11 @@ export interface Beat {
   dialogue?: string;
   scene: string;
   choices: string[];
-  focus_char: 'hero' | 'friend' | 'other';
+  focus_char: 'hero' | 'friend' | 'villain' | 'other';
 }
 
 export interface Persona {
-  base64: string;
+  base64?: string;
   desc: string;
   name: string;
 }

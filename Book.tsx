@@ -19,6 +19,7 @@ interface BookProps {
     onDownload: () => void;
     onReset: () => void;
     onAnimate: (id: string) => void;
+    onRegenerate: (id: string) => void;
     userPlan: UserPlan;
     customBranding?: string;
 }
@@ -43,10 +44,10 @@ export const Book: React.FC<BookProps> = (props) => {
               <div key={i} className={`paper ${i < props.currentSheetIndex ? 'flipped' : ''}`} style={{ zIndex: i < props.currentSheetIndex ? i : sheetsToRender.length - i }}
                    onClick={() => props.onSheetClick(i)}>
                   <div className="front">
-                      <Panel face={sheet.front} allFaces={props.comicFaces} onChoice={props.onChoice} onOpenBook={props.onOpenBook} onDownload={props.onDownload} onReset={props.onReset} onAnimate={props.onAnimate} userPlan={props.userPlan} customBranding={props.customBranding} />
+                      <Panel face={sheet.front} allFaces={props.comicFaces} onChoice={props.onChoice} onOpenBook={props.onOpenBook} onDownload={props.onDownload} onReset={props.onReset} onAnimate={props.onAnimate} onRegenerate={props.onRegenerate} userPlan={props.userPlan} customBranding={props.customBranding} />
                   </div>
                   <div className="back">
-                      <Panel face={sheet.back} allFaces={props.comicFaces} onChoice={props.onChoice} onOpenBook={props.onOpenBook} onDownload={props.onDownload} onReset={props.onReset} onAnimate={props.onAnimate} userPlan={props.userPlan} customBranding={props.customBranding} />
+                      <Panel face={sheet.back} allFaces={props.comicFaces} onChoice={props.onChoice} onOpenBook={props.onOpenBook} onDownload={props.onDownload} onReset={props.onReset} onAnimate={props.onAnimate} onRegenerate={props.onRegenerate} userPlan={props.userPlan} customBranding={props.customBranding} />
                   </div>
               </div>
           ))}

@@ -17,7 +17,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ onSelect, onClose })
       name: 'Recruit',
       price: '$0',
       tagline: 'Standard Issue',
-      features: ['Real Life Avengers Watermark', 'Standard PDF Export', 'AI Storytelling'],
+      features: ['Real Life SuperHeroes Watermark', 'Standard PDF Export', 'AI Storytelling'],
       color: 'bg-gray-100',
       textColor: 'text-gray-800'
     },
@@ -45,11 +45,11 @@ export const PricingModal: React.FC<PricingModalProps> = ({ onSelect, onClose })
 
   return (
     <div className="fixed inset-0 z-[600] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 overflow-y-auto">
-      <div className="bg-white border-[8px] border-black p-6 md:p-10 max-w-5xl w-full rotate-[0.5deg] shadow-[20px_20px_0_black] animate-in zoom-in-95 duration-300">
+      <div className="bg-white border-[8px] border-black p-6 md:p-10 max-w-5xl w-full rotate-[0.5deg] shadow-[20px_20px_0_black] animate-in zoom-in-95 duration-300 text-black">
         
         <div className="text-center mb-10">
           <h2 className="font-comic text-6xl text-black uppercase tracking-tighter" style={{ textShadow: '4px 4px 0 #DC2626' }}>Upgrade Your Multiverse</h2>
-          <p className="font-comic text-xl text-gray-500 uppercase tracking-widest mt-2">Unlock the full power of Real Life Avengers</p>
+          <p className="font-comic text-xl text-gray-500 uppercase tracking-widest mt-2">Unlock the full power of Real Life SuperHeroes</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -57,7 +57,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ onSelect, onClose })
             <div 
               key={plan.id}
               onClick={() => setSelectedPlan(plan.id)}
-              className={`relative cursor-pointer transition-all duration-300 p-6 border-4 border-black group ${plan.id === selectedPlan ? `${plan.color} ${plan.textColor} scale-105 ${plan.glow}` : 'bg-white hover:bg-gray-50 scale-100'}`}
+              className={`relative cursor-pointer transition-all duration-300 p-6 border-4 border-black group ${plan.id === selectedPlan ? `${plan.color} ${plan.textColor} scale-105 ${plan.glow}` : 'bg-white hover:bg-gray-50 scale-100 text-black'}`}
             >
               {plan.id === selectedPlan && (
                  <div className="absolute -top-5 -right-5 w-12 h-12 bg-yellow-400 border-4 border-black rounded-full flex items-center justify-center animate-bounce z-10 text-2xl">
@@ -86,7 +86,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ onSelect, onClose })
                     placeholder="e.g. mAIstermind Studios"
                     value={customBranding}
                     onChange={(e) => setCustomBranding(e.target.value)}
-                    className="w-full p-2 bg-white text-black border-2 border-black font-comic text-sm focus:outline-none"
+                    className="w-full p-2 bg-white text-black border-2 border-black font-comic text-sm focus:outline-none placeholder-gray-400"
                     onClick={(e) => e.stopPropagation()}
                   />
                   <p className="text-[9px] mt-2 opacity-80 leading-tight">
@@ -114,7 +114,7 @@ export const PricingModal: React.FC<PricingModalProps> = ({ onSelect, onClose })
         </div>
 
         <div className="mt-6 text-center text-[10px] text-gray-400 font-mono uppercase tracking-[2px]">
-          Secure encryption via The Avengers Network • All major credits accepted
+          Secure encryption via The Heroic Network • All major credits accepted
         </div>
       </div>
     </div>

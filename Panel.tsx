@@ -16,18 +16,19 @@ interface PanelProps {
     onDownload: () => void;
     onReset: () => void;
     onAnimate: (id: string) => void;
+    onRegenerate: (id: string) => void;
     userPlan: UserPlan;
     customBranding?: string;
 }
 
-export const Panel: React.FC<PanelProps> = ({ face, allFaces, onChoice, onOpenBook, onDownload, onReset, onAnimate, userPlan, customBranding }) => {
+export const Panel: React.FC<PanelProps> = ({ face, allFaces, onChoice, onOpenBook, onDownload, onReset, onAnimate, onRegenerate, userPlan, customBranding }) => {
     if (!face) return <div className="w-full h-full bg-[#111] border-2 border-black/20" />;
     const isFullBleed = face.type === 'cover' || face.type === 'back_cover';
 
     const getWatermarkText = () => {
         if (userPlan === 'individual') return null;
         if (userPlan === 'agency' && customBranding) return customBranding;
-        return "Real Life Avengers";
+        return "Real Life SuperHeroes";
     };
 
     const watermarkText = getWatermarkText();
@@ -46,13 +47,21 @@ export const Panel: React.FC<PanelProps> = ({ face, allFaces, onChoice, onOpenBo
                 <img src={face.imageUrl} alt="Comic panel" className={`panel-image transition-all duration-1000 ${isFullBleed ? '!object-cover' : ''} ${face.isLoading ? 'opacity-40 grayscale blur-md' : 'opacity-100 animate-panel-pop'}`} />
             )}
             
-            {!face.isLoading && face.imageUrl && !face.videoUrl && face.type === 'story' && (
-                <button 
-                    onClick={(e) => { e.stopPropagation(); onAnimate(face.id); }}
-                    className="absolute top-4 right-4 z-[40] bg-black/60 backdrop-blur-md text-yellow-400 p-2 rounded-full hover:scale-110 active:scale-90 transition-transform flex items-center gap-2 px-4 border border-yellow-400/30 font-comic text-sm"
-                >
-                   {face.isAnimating ? 'MAGIC...' : '✨ ANIMATE'}
-                </button>
+            {!face.isLoading && face.imageUrl && !face.videoUrl && face.type !== 'back_cover' && (
+                <div className="absolute top-4 right-4 z-[40] flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onAnimate(face.id); }}
+                        className="bg-black/60 backdrop-blur-md text-yellow-400 p-2 rounded-full hover:scale-110 active:scale-90 transition-transform flex items-center gap-2 px-4 border border-yellow-400/30 font-comic text-[10px]"
+                    >
+                        {face.isAnimating ? 'MAGIC...' : '✨ ANIMATE'}
+                    </button>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onRegenerate(face.id); }}
+                        className="bg-black/60 backdrop-blur-md text-white p-2 rounded-full hover:scale-110 active:scale-90 transition-transform flex items-center gap-2 px-4 border border-white/30 font-comic text-[10px]"
+                    >
+                        🎨 RE-INK
+                    </button>
+                </div>
             )}
 
             {face.imageUrl && !face.isLoading && watermarkText && (
