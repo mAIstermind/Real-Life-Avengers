@@ -7,7 +7,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI, Type } from '@google/genai';
 import jsPDF from 'jspdf';
-import { GENRES, TONES, LANGUAGES, ComicFace, Beat, Persona, UserPlan } from './types';
+import { GENRES, ComicFace, Beat, Persona, UserPlan } from './types';
 import { Setup } from './Setup';
 import { Book } from './Book';
 import { useApiKey } from './useApiKey';
@@ -32,33 +32,41 @@ const App: React.FC = () => {
 
   const [showIntro, setShowIntro] = useState(true);
   const [showPricing, setShowPricing] = useState(false);
-  const [userPlan, setUserPlan] = useState<UserPlan>(() => (localStorage.getItem('user_plan') as UserPlan) || 'free');
-  const [customBranding, setCustomBranding] = useState(() => localStorage.getItem('custom_branding') || '');
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
 
-  // Persistent State Restoration
-  const [heroName, setHeroName] = useState(() => localStorage.getItem('hero_name') || "");
-  const [friendName, setFriendName] = useState(() => localStorage.getItem('friend_name') || "");
-  const [villainName, setVillainName] = useState(() => localStorage.getItem('villain_name') || "");
-  const [villainDesc, setVillainDesc] = useState(() => localStorage.getItem('villain_desc') || "");
-  const [selectedGenre, setSelectedGenre] = useState(() => localStorage.getItem('selected_genre') || GENRES[0]);
-  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('selected_lang') || LANGUAGES[0].code);
-  const [customPremise, setCustomPremise] = useState(() => localStorage.getItem('custom_premise') || "");
-  const [richMode, setRichMode] = useState(() => localStorage.getItem('rich_mode') === 'true');
-  const [storyLength, setStoryLength] = useState(() => parseInt(localStorage.getItem('story_length') || '4'));
+  const [userPlan, setUserPlan] = useState<UserPlan>(() => {
+    try { return (localStorage.getItem('user_plan') as UserPlan) || 'free'; } catch { return 'free'; }
+  });
+  const [customBranding, setCustomBranding] = useState(() => {
+     try { return localStorage.getItem('custom_branding') || ''; } catch { return ''; }
+  });
+
+  const [heroName, setHeroName] = useState(() => { try { return localStorage.getItem('hero_name') || ""; } catch { return ""; } });
+  const [friendName, setFriendName] = useState(() => { try { return localStorage.getItem('friend_name') || ""; } catch { return ""; } });
+  const [villainName, setVillainName] = useState(() => { try { return localStorage.getItem('villain_name') || ""; } catch { return ""; } });
+  const [villainDesc, setVillainDesc] = useState(() => { try { return localStorage.getItem('villain_desc') || ""; } catch { return ""; } });
+  const [selectedGenre, setSelectedGenre] = useState(() => { try { return localStorage.getItem('selected_genre') || GENRES[0]; } catch { return GENRES[0]; } });
+  const [customPremise, setCustomPremise] = useState(() => { try { return localStorage.getItem('custom_premise') || ""; } catch { return ""; } });
+  const [richMode, setRichMode] = useState(() => { try { return localStorage.getItem('rich_mode') === 'true'; } catch { return false; } });
+  const [storyLength, setStoryLength] = useState(() => { try { return parseInt(localStorage.getItem('story_length') || '4'); } catch { return 4; } });
 
   const [hero, setHeroState] = useState<Persona | null>(() => {
-    const saved = localStorage.getItem('hero_data');
-    try { return saved ? JSON.parse(saved) : null; } catch { return null; }
+    try {
+      const saved = localStorage.getItem('hero_data');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
   });
   const [friend, setFriendState] = useState<Persona | null>(() => {
-    const saved = localStorage.getItem('friend_data');
-    try { return saved ? JSON.parse(saved) : null; } catch { return null; }
+    try {
+      const saved = localStorage.getItem('friend_data');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
   });
 
   const heroRef = useRef<Persona | null>(hero);
   const friendRef = useRef<Persona | null>(friend);
 
-  // Sync refs and localStorage
   useEffect(() => {
     try {
       localStorage.setItem('hero_name', heroName);
@@ -66,7 +74,6 @@ const App: React.FC = () => {
       localStorage.setItem('villain_name', villainName);
       localStorage.setItem('villain_desc', villainDesc);
       localStorage.setItem('selected_genre', selectedGenre);
-      localStorage.setItem('selected_lang', selectedLanguage);
       localStorage.setItem('custom_premise', customPremise);
       localStorage.setItem('rich_mode', String(richMode));
       localStorage.setItem('story_length', String(storyLength));
@@ -75,10 +82,9 @@ const App: React.FC = () => {
       if (hero) localStorage.setItem('hero_data', JSON.stringify(hero));
       if (friend) localStorage.setItem('friend_data', JSON.stringify(friend));
     } catch (e) {
-      console.warn("Storage quota exceeded, clearing non-essential history.");
-      // If we hit limits, we might want to avoid storing massive images
+      console.warn("Storage quota exceeded.");
     }
-  }, [heroName, friendName, villainName, villainDesc, selectedGenre, selectedLanguage, customPremise, richMode, storyLength, hero, friend, userPlan, customBranding]);
+  }, [heroName, friendName, villainName, villainDesc, selectedGenre, customPremise, richMode, storyLength, hero, friend, userPlan, customBranding]);
 
   const setHero = (p: Persona | null) => { setHeroState(p); heroRef.current = p; };
   const setFriend = (p: Persona | null) => { setFriendState(p); friendRef.current = p; };
@@ -100,7 +106,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Helper to resize images to keep them safe for localstorage and performance
   const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -188,61 +193,87 @@ const App: React.FC = () => {
     } catch (e) { handleAPIError(e); return ''; }
   };
 
-  const handleExportPDF = () => {
-    if (comicFaces.length === 0) return;
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'px',
-      format: [400, 600]
-    });
+  const handleExportPDF = async () => {
+    // Check if generation is actually complete
+    const pendingPages = comicFaces.filter(f => f.isLoading);
+    if (pendingPages.length > 0) {
+      alert(`The multiverse is still being inked! Wait for all ${comicFaces.length} panels to manifest before archiving.`);
+      return;
+    }
 
-    const sortedFaces = [...comicFaces].sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
+    setIsExporting(true);
+    setExportProgress(0);
+    await new Promise(r => setTimeout(r, 500));
 
-    sortedFaces.forEach((face, index) => {
-      if (face.imageUrl) {
-        if (index > 0) doc.addPage([400, 600], 'portrait');
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [400, 600]
+      });
+
+      const sortedFaces = [...comicFaces].sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
+      let pagesAdded = 0;
+
+      for (let i = 0; i < sortedFaces.length; i++) {
+        const face = sortedFaces[i];
+        setExportProgress(Math.round(((i + 1) / sortedFaces.length) * 100));
         
-        // Add a black background for bleed
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, 400, 600, 'F');
+        if (face.imageUrl) {
+          if (pagesAdded > 0) doc.addPage([400, 600], 'portrait');
+          
+          doc.setFillColor(0, 0, 0);
+          doc.rect(0, 0, 400, 600, 'F');
 
-        // Extract base64 clean part
-        const base64Data = face.imageUrl.split(',')[1];
-        try {
-          doc.addImage(base64Data, 'JPEG', 0, 0, 400, 600, undefined, 'FAST');
-        } catch (e) {
-          console.error("PDF Image Error", e);
-        }
-        
-        // Watermark Logic
-        if (userPlan === 'free') {
-           doc.setFillColor(0, 0, 0, 0.4);
-           doc.rect(260, 580, 140, 20, 'F');
-           doc.setTextColor(255, 255, 255);
-           doc.setFontSize(8);
-           doc.text("REAL LIFE SUPERHEROES AI", 270, 592);
-        } else if (userPlan === 'agency' && customBranding) {
-           doc.setFillColor(0, 0, 0, 0.6);
-           doc.rect(0, 580, 400, 20, 'F');
-           doc.setTextColor(255, 255, 255);
-           doc.setFontSize(8);
-           doc.text(customBranding.toUpperCase(), 200, 592, { align: 'center' });
-        }
+          const dataUrl = face.imageUrl;
+          const base64Data = dataUrl.split(',')[1];
+          const formatMatch = dataUrl.match(/^data:image\/(png|jpeg|webp);base64,/);
+          const format = formatMatch ? formatMatch[1].toUpperCase() : 'JPEG';
+          
+          try {
+            doc.addImage(base64Data, format as any, 0, 0, 400, 600, undefined, 'MEDIUM');
+          } catch (e) {
+            console.error("PDF Image add failed", e);
+          }
+          
+          if (userPlan === 'free') {
+             doc.setFillColor(0, 0, 0, 0.4);
+             doc.rect(260, 580, 140, 20, 'F');
+             doc.setTextColor(255, 255, 255);
+             doc.setFontSize(8);
+             doc.text("REAL LIFE SUPERHEROES AI", 270, 592);
+          } else if (userPlan === 'agency' && customBranding) {
+             doc.setFillColor(0, 0, 0, 0.6);
+             doc.rect(0, 580, 400, 20, 'F');
+             doc.setTextColor(255, 255, 255);
+             doc.setFontSize(8);
+             doc.text(customBranding.toUpperCase(), 200, 592, { align: 'center' });
+          }
 
-        // Narrative Overlay
-        if (face.type === 'story' && face.narrative && face.narrative.caption) {
-          doc.setFillColor(255, 255, 255, 0.95);
-          doc.setDrawColor(0, 0, 0);
-          doc.setLineWidth(1.5);
-          doc.rect(30, 30, 340, 45, 'FD');
-          doc.setTextColor(0, 0, 0);
-          doc.setFontSize(11);
-          doc.text(face.narrative.caption, 40, 48, { maxWidth: 320 });
+          if (face.type === 'story' && face.narrative && face.narrative.caption) {
+            doc.setFillColor(255, 255, 255, 0.95);
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(1.5);
+            doc.rect(30, 30, 340, 45, 'FD');
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(11);
+            doc.text(face.narrative.caption, 40, 48, { maxWidth: 320 });
+          }
+          pagesAdded++;
+          // Yield to main thread for a frame to keep UI responsive on mobile
+          await new Promise(r => requestAnimationFrame(r));
         }
       }
-    });
 
-    doc.save(`${heroName.replace(/\s+/g, '_') || 'Hero'}_Multiverse_Comic.pdf`);
+      if (pagesAdded > 0) {
+        doc.save(`${heroName.replace(/\s+/g, '_') || 'Hero'}_Multiverse.pdf`);
+      }
+    } catch (err) {
+      console.error("Archive failed", err);
+      alert("Multiverse Archive Failed: Device Memory Exhausted.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const launchStory = async () => {
@@ -288,24 +319,31 @@ const App: React.FC = () => {
     }
   };
 
-  const clearPersistence = () => {
-    if (confirm("Wipe all locally stored hero data and cache? This fixes black screens.")) {
-        localStorage.clear();
-        window.location.reload();
-    }
-  };
-
   return (
     <div className="comic-scene">
       {showIntro && <Intro onComplete={() => setShowIntro(false)} />}
       {showApiKeyDialog && <ApiKeyDialog onContinue={handleApiKeyDialogContinue} />}
+      
+      {isExporting && (
+        <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/95 backdrop-blur-3xl p-10 text-center">
+           <div className="relative w-40 h-40 mb-12">
+              <div className="absolute inset-0 border-8 border-red-600/20 rounded-full"></div>
+              <div className="absolute inset-0 border-8 border-red-600 border-t-white rounded-full animate-spin shadow-[0_0_50px_rgba(220,38,38,0.6)]"></div>
+              <div className="absolute inset-0 flex items-center justify-center font-comic text-4xl text-white">{exportProgress}%</div>
+           </div>
+           <h2 className="font-comic text-6xl text-white uppercase tracking-tighter mb-4 animate-pulse">ARCHIVING MULTIVERSE</h2>
+           <p className="font-mono text-red-500 text-sm uppercase tracking-[6px] mb-2">DO NOT CLOSE APP</p>
+           <p className="font-sans text-gray-500 text-xs uppercase tracking-widest italic max-w-sm">Synchronizing cinematic panels to portable digital document format...</p>
+        </div>
+      )}
+
       {showPricing && (
         <PricingModal 
           onSelect={(plan, branding) => {
             setUserPlan(plan);
             if (branding) setCustomBranding(branding);
             setShowPricing(false);
-            setTimeout(() => handleExportPDF(), 600);
+            setTimeout(() => handleExportPDF(), 1200);
           }}
           onClose={() => setShowPricing(false)}
         />
@@ -314,7 +352,13 @@ const App: React.FC = () => {
       {isStarted && !showSetup && (
           <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex gap-4 bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border-2 border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.3)]">
              <button onClick={resetApp} className="text-white font-comic hover:text-yellow-400 pr-4 border-r border-white/20 uppercase tracking-widest text-sm">New Issue</button>
-             <button onClick={() => setShowPricing(true)} className="bg-red-600 text-white font-comic px-6 py-1 rounded-full hover:bg-red-500 transition-colors uppercase tracking-widest text-sm">Download PDF</button>
+             <button 
+               onClick={() => setShowPricing(true)} 
+               disabled={comicFaces.some(f => f.isLoading)}
+               className="bg-red-600 text-white font-comic px-6 py-1 rounded-full hover:bg-red-500 disabled:bg-gray-700 disabled:opacity-50 transition-all uppercase tracking-widest text-sm"
+             >
+                {comicFaces.some(f => f.isLoading) ? 'INKING...' : 'Download PDF'}
+             </button>
           </div>
       )}
 
@@ -323,13 +367,13 @@ const App: React.FC = () => {
           isTransitioning={isTransitioning}
           hero={hero} friend={friend} heroName={heroName} friendName={friendName}
           villainName={villainName} villainDesc={villainDesc}
-          selectedGenre={selectedGenre} selectedLanguage={selectedLanguage} customPremise={customPremise}
+          selectedGenre={selectedGenre} selectedLanguage={''} customPremise={customPremise}
           richMode={richMode} storyLength={storyLength}
           onHeroUpload={async (file) => { const b = await resizeImage(file, 512, 512); setHero({ base64: b, desc: "Hero", name: heroName }); }}
           onFriendUpload={async (file) => { const b = await resizeImage(file, 512, 512); setFriend({ base64: b, desc: "Sidekick", name: friendName }); }}
           onHeroNameChange={setHeroName} onFriendNameChange={setFriendName}
           onVillainNameChange={setVillainName} onVillainDescChange={setVillainDesc}
-          onGenreChange={setSelectedGenre} onLanguageChange={setSelectedLanguage}
+          onGenreChange={setSelectedGenre} onLanguageChange={() => {}}
           onPremiseChange={setCustomPremise} onRichModeChange={setRichMode}
           onStoryLengthChange={setStoryLength} onFeelingLucky={() => setCustomPremise(FEELING_LUCKY_PROMPTS[Math.floor(Math.random()*FEELING_LUCKY_PROMPTS.length)])}
           onLaunch={launchStory}
@@ -353,7 +397,12 @@ const App: React.FC = () => {
           customBranding={customBranding}
       />
       <LegalFooter />
-      <button onClick={clearPersistence} className="fixed bottom-4 left-4 z-[300] text-[10px] text-white/10 hover:text-red-500 font-mono transition-colors uppercase tracking-[2px]">Reset Demo Cache</button>
+      <button 
+        onClick={() => { localStorage.clear(); window.location.reload(); }} 
+        className="fixed bottom-4 left-4 z-[300] text-[10px] text-white/10 hover:text-red-500 font-mono transition-colors uppercase tracking-[2px]"
+      >
+        Reset Cache
+      </button>
     </div>
   );
 };

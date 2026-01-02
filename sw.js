@@ -1,9 +1,10 @@
 
-const CACHE_NAME = 'superheroes-cache-v4';
+const CACHE_NAME = 'superheroes-v5';
 const ASSETS = [
   '/',
   '/index.html',
-  '/index.css'
+  '/index.css',
+  '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -26,9 +27,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
-  // Skip cross-origin or module files that shouldn't be cached as static assets
-  if (url.origin !== self.location.origin || url.pathname.endsWith('.tsx') || url.pathname.endsWith('.ts')) {
-     return;
+  // NEVER cache scripts or modules - this causes the "code on screen" error on some mobile devices
+  if (url.pathname.endsWith('.tsx') || url.pathname.endsWith('.ts') || url.pathname.endsWith('.js')) {
+    return;
   }
   
   event.respondWith(
