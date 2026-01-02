@@ -32,6 +32,7 @@ const App: React.FC = () => {
 
   const [showIntro, setShowIntro] = useState(true);
   const [showPricing, setShowPricing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [userPlan, setUserPlan] = useState<UserPlan>(() => {
     try {
       return (localStorage.getItem('user_plan') as UserPlan) || 'free';
@@ -41,7 +42,6 @@ const App: React.FC = () => {
      try { return localStorage.getItem('custom_branding') || ''; } catch { return ''; }
   });
 
-  // Persistent State Restoration with Robust Error Handling
   const [heroName, setHeroName] = useState(() => { try { return localStorage.getItem('hero_name') || ""; } catch { return ""; } });
   const [friendName, setFriendName] = useState(() => { try { return localStorage.getItem('friend_name') || ""; } catch { return ""; } });
   const [villainName, setVillainName] = useState(() => { try { return localStorage.getItem('villain_name') || ""; } catch { return ""; } });
@@ -67,7 +67,6 @@ const App: React.FC = () => {
   const heroRef = useRef<Persona | null>(hero);
   const friendRef = useRef<Persona | null>(friend);
 
-  // Sync refs and localStorage
   useEffect(() => {
     try {
       localStorage.setItem('hero_name', heroName);
@@ -107,7 +106,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Safe Image Resizing
   const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -195,57 +193,78 @@ const App: React.FC = () => {
     } catch (e) { handleAPIError(e); return ''; }
   };
 
-  const handleExportPDF = () => {
-    if (comicFaces.length === 0) return;
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'px',
-      format: [400, 600]
-    });
+  const handleExportPDF = async () => {
+    if (comicFaces.length === 0) {
+      alert("Multiverse is empty. Launch a story first.");
+      return;
+    }
 
-    const sortedFaces = [...comicFaces].sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
+    setIsExporting(true);
+    try {
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'px',
+        format: [400, 600]
+      });
 
-    sortedFaces.forEach((face, index) => {
-      if (face.imageUrl) {
-        if (index > 0) doc.addPage([400, 600], 'portrait');
-        
-        doc.setFillColor(0, 0, 0);
-        doc.rect(0, 0, 400, 600, 'F');
+      const sortedFaces = [...comicFaces].sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
+      let pagesAdded = 0;
 
-        const base64Data = face.imageUrl.split(',')[1];
-        try {
-          doc.addImage(base64Data, 'JPEG', 0, 0, 400, 600, undefined, 'FAST');
-        } catch (e) {
-          console.error("PDF Image Compression Error", e);
-        }
-        
-        if (userPlan === 'free') {
-           doc.setFillColor(0, 0, 0, 0.4);
-           doc.rect(260, 580, 140, 20, 'F');
-           doc.setTextColor(255, 255, 255);
-           doc.setFontSize(8);
-           doc.text("REAL LIFE SUPERHEROES AI", 270, 592);
-        } else if (userPlan === 'agency' && customBranding) {
-           doc.setFillColor(0, 0, 0, 0.6);
-           doc.rect(0, 580, 400, 20, 'F');
-           doc.setTextColor(255, 255, 255);
-           doc.setFontSize(8);
-           doc.text(customBranding.toUpperCase(), 200, 592, { align: 'center' });
-        }
+      for (const face of sortedFaces) {
+        if (face.imageUrl && !face.isLoading) {
+          if (pagesAdded > 0) doc.addPage([400, 600], 'portrait');
+          
+          doc.setFillColor(0, 0, 0);
+          doc.rect(0, 0, 400, 600, 'F');
 
-        if (face.type === 'story' && face.narrative && face.narrative.caption) {
-          doc.setFillColor(255, 255, 255, 0.95);
-          doc.setDrawColor(0, 0, 0);
-          doc.setLineWidth(1.5);
-          doc.rect(30, 30, 340, 45, 'FD');
-          doc.setTextColor(0, 0, 0);
-          doc.setFontSize(11);
-          doc.text(face.narrative.caption, 40, 48, { maxWidth: 320 });
+          const mimeType = face.imageUrl.split(';')[0].split(':')[1] || 'image/png';
+          const format = mimeType.split('/')[1].toUpperCase();
+          const base64Data = face.imageUrl.split(',')[1];
+          
+          try {
+            doc.addImage(base64Data, format as any, 0, 0, 400, 600, undefined, 'MEDIUM');
+          } catch (e) {
+            console.error(`Error adding image for page ${face.pageIndex}:`, e);
+          }
+          
+          if (userPlan === 'free') {
+             doc.setFillColor(0, 0, 0, 0.4);
+             doc.rect(260, 580, 140, 20, 'F');
+             doc.setTextColor(255, 255, 255);
+             doc.setFontSize(8);
+             doc.text("REAL LIFE SUPERHEROES AI", 270, 592);
+          } else if (userPlan === 'agency' && customBranding) {
+             doc.setFillColor(0, 0, 0, 0.6);
+             doc.rect(0, 580, 400, 20, 'F');
+             doc.setTextColor(255, 255, 255);
+             doc.setFontSize(8);
+             doc.text(customBranding.toUpperCase(), 200, 592, { align: 'center' });
+          }
+
+          if (face.type === 'story' && face.narrative && face.narrative.caption) {
+            doc.setFillColor(255, 255, 255, 0.95);
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(1.5);
+            doc.rect(30, 30, 340, 45, 'FD');
+            doc.setTextColor(0, 0, 0);
+            doc.setFontSize(11);
+            doc.text(face.narrative.caption, 40, 48, { maxWidth: 320 });
+          }
+          pagesAdded++;
         }
       }
-    });
 
-    doc.save(`${heroName.replace(/\s+/g, '_') || 'Hero'}_Multiverse_Comic.pdf`);
+      if (pagesAdded === 0) {
+        alert("No completed pages to export. Please wait for generation to finish.");
+      } else {
+        doc.save(`${heroName.replace(/\s+/g, '_') || 'Hero'}_Multiverse_Comic.pdf`);
+      }
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Failed to generate PDF. Your device memory might be low.");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const launchStory = async () => {
@@ -302,13 +321,22 @@ const App: React.FC = () => {
     <div className="comic-scene">
       {showIntro && <Intro onComplete={() => setShowIntro(false)} />}
       {showApiKeyDialog && <ApiKeyDialog onContinue={handleApiKeyDialogContinue} />}
+      
+      {isExporting && (
+        <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/90 backdrop-blur-xl">
+           <div className="w-24 h-24 border-8 border-red-600 border-t-white rounded-full animate-spin mb-8 shadow-[0_0_30px_rgba(220,38,38,0.5)]"></div>
+           <h2 className="font-comic text-5xl text-white uppercase tracking-tighter">ARCHIVING MULTIVERSE</h2>
+           <p className="font-mono text-gray-500 text-xs mt-4 uppercase tracking-[4px]">Rendering Comic Panels to PDF...</p>
+        </div>
+      )}
+
       {showPricing && (
         <PricingModal 
           onSelect={(plan, branding) => {
             setUserPlan(plan);
             if (branding) setCustomBranding(branding);
             setShowPricing(false);
-            setTimeout(() => handleExportPDF(), 600);
+            setTimeout(() => handleExportPDF(), 800);
           }}
           onClose={() => setShowPricing(false)}
         />

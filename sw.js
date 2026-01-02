@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'superheroes-cache-v3';
+const CACHE_NAME = 'superheroes-cache-v4';
 const ASSETS = [
   '/',
   '/index.html',
@@ -24,8 +24,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Always try network first for the entry script to avoid source-code-injection issues in dev
-  if (event.request.url.includes('.tsx') || event.request.url.includes('.ts')) {
+  const url = new URL(event.request.url);
+  
+  // Skip cross-origin or module files that shouldn't be cached as static assets
+  if (url.origin !== self.location.origin || url.pathname.endsWith('.tsx') || url.pathname.endsWith('.ts')) {
      return;
   }
   
