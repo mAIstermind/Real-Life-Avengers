@@ -200,6 +200,9 @@ const App: React.FC = () => {
     }
 
     setIsExporting(true);
+    // Add a slight delay to allow the loading overlay to render on mobile
+    await new Promise(r => setTimeout(r, 100));
+
     try {
       const doc = new jsPDF({
         orientation: 'portrait',
@@ -217,11 +220,13 @@ const App: React.FC = () => {
           doc.setFillColor(0, 0, 0);
           doc.rect(0, 0, 400, 600, 'F');
 
-          const mimeType = face.imageUrl.split(';')[0].split(':')[1] || 'image/png';
-          const format = mimeType.split('/')[1].toUpperCase();
-          const base64Data = face.imageUrl.split(',')[1];
+          const dataUrl = face.imageUrl;
+          const base64Data = dataUrl.split(',')[1];
+          const formatMatch = dataUrl.match(/^data:image\/(png|jpeg|webp);base64,/);
+          const format = formatMatch ? formatMatch[1].toUpperCase() : 'JPEG';
           
           try {
+            // Using MEDIUM compression to balance quality and mobile memory usage
             doc.addImage(base64Data, format as any, 0, 0, 400, 600, undefined, 'MEDIUM');
           } catch (e) {
             console.error(`Error adding image for page ${face.pageIndex}:`, e);
@@ -336,7 +341,8 @@ const App: React.FC = () => {
             setUserPlan(plan);
             if (branding) setCustomBranding(branding);
             setShowPricing(false);
-            setTimeout(() => handleExportPDF(), 800);
+            // Longer delay to ensure modal is gone and memory is freed for PDF gen
+            setTimeout(() => handleExportPDF(), 1000);
           }}
           onClose={() => setShowPricing(false)}
         />
