@@ -18,7 +18,6 @@ import { PricingModal } from './PricingModal';
 
 const MODEL_IMAGE_GEN_NAME = "gemini-3-pro-image-preview";
 const MODEL_TEXT_NAME = "gemini-3-pro-preview";
-const MODEL_VIDEO_GEN_NAME = "veo-3.1-fast-generate-preview";
 
 const FEELING_LUCKY_PROMPTS = [
     "A small-town librarian who discovers they can speak to ghosts and solves long-forgotten mysteries.",
@@ -49,11 +48,11 @@ const App: React.FC = () => {
 
   const [hero, setHeroState] = useState<Persona | null>(() => {
     const saved = localStorage.getItem('hero_data');
-    return saved ? JSON.parse(saved) : null;
+    try { return saved ? JSON.parse(saved) : null; } catch { return null; }
   });
   const [friend, setFriendState] = useState<Persona | null>(() => {
     const saved = localStorage.getItem('friend_data');
-    return saved ? JSON.parse(saved) : null;
+    try { return saved ? JSON.parse(saved) : null; } catch { return null; }
   });
 
   const heroRef = useRef<Persona | null>(hero);
@@ -61,19 +60,24 @@ const App: React.FC = () => {
 
   // Sync refs and localStorage
   useEffect(() => {
-    localStorage.setItem('hero_name', heroName);
-    localStorage.setItem('friend_name', friendName);
-    localStorage.setItem('villain_name', villainName);
-    localStorage.setItem('villain_desc', villainDesc);
-    localStorage.setItem('selected_genre', selectedGenre);
-    localStorage.setItem('selected_lang', selectedLanguage);
-    localStorage.setItem('custom_premise', customPremise);
-    localStorage.setItem('rich_mode', String(richMode));
-    localStorage.setItem('story_length', String(storyLength));
-    localStorage.setItem('user_plan', userPlan);
-    localStorage.setItem('custom_branding', customBranding);
-    if (hero) localStorage.setItem('hero_data', JSON.stringify(hero));
-    if (friend) localStorage.setItem('friend_data', JSON.stringify(friend));
+    try {
+      localStorage.setItem('hero_name', heroName);
+      localStorage.setItem('friend_name', friendName);
+      localStorage.setItem('villain_name', villainName);
+      localStorage.setItem('villain_desc', villainDesc);
+      localStorage.setItem('selected_genre', selectedGenre);
+      localStorage.setItem('selected_lang', selectedLanguage);
+      localStorage.setItem('custom_premise', customPremise);
+      localStorage.setItem('rich_mode', String(richMode));
+      localStorage.setItem('story_length', String(storyLength));
+      localStorage.setItem('user_plan', userPlan);
+      localStorage.setItem('custom_branding', customBranding);
+      if (hero) localStorage.setItem('hero_data', JSON.stringify(hero));
+      if (friend) localStorage.setItem('friend_data', JSON.stringify(friend));
+    } catch (e) {
+      console.warn("Storage quota exceeded, clearing non-essential history.");
+      // If we hit limits, we might want to avoid storing massive images
+    }
   }, [heroName, friendName, villainName, villainDesc, selectedGenre, selectedLanguage, customPremise, richMode, storyLength, hero, friend, userPlan, customBranding]);
 
   const setHero = (p: Persona | null) => { setHeroState(p); heroRef.current = p; };
@@ -96,11 +100,28 @@ const App: React.FC = () => {
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
+  // Helper to resize images to keep them safe for localstorage and performance
+  const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = reject;
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; }
+          } else {
+            if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; }
+          }
+          canvas.width = width; canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+        };
+        img.src = e.target?.result as string;
+      };
       reader.readAsDataURL(file);
     });
   };
@@ -149,8 +170,8 @@ const App: React.FC = () => {
         contents.push({ text: "REF HERO:" }, { inlineData: { mimeType: 'image/jpeg', data: heroRef.current.base64 } });
     }
     const hName = heroName || "THE HERO";
-    let styleGuide = "STYLE: Cinematic Comic art. High drama.";
-    if (selectedGenre === "Pixar-Style Adventure") styleGuide = "STYLE: Disney/Pixar 3D CGI style.";
+    let styleGuide = "STYLE: Cinematic Comic art. High drama. 4K detail.";
+    if (selectedGenre === "Pixar-Style Adventure") styleGuide = "STYLE: Disney/Pixar 3D CGI style. Soft lighting.";
 
     let promptText = `${styleGuide} ${hName} is the star. SCENE: ${beat.scene}.`;
     contents.push({ text: promptText });
@@ -165,6 +186,63 @@ const App: React.FC = () => {
         const part = res.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
         return part?.inlineData?.data ? `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` : '';
     } catch (e) { handleAPIError(e); return ''; }
+  };
+
+  const handleExportPDF = () => {
+    if (comicFaces.length === 0) return;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'px',
+      format: [400, 600]
+    });
+
+    const sortedFaces = [...comicFaces].sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
+
+    sortedFaces.forEach((face, index) => {
+      if (face.imageUrl) {
+        if (index > 0) doc.addPage([400, 600], 'portrait');
+        
+        // Add a black background for bleed
+        doc.setFillColor(0, 0, 0);
+        doc.rect(0, 0, 400, 600, 'F');
+
+        // Extract base64 clean part
+        const base64Data = face.imageUrl.split(',')[1];
+        try {
+          doc.addImage(base64Data, 'JPEG', 0, 0, 400, 600, undefined, 'FAST');
+        } catch (e) {
+          console.error("PDF Image Error", e);
+        }
+        
+        // Watermark Logic
+        if (userPlan === 'free') {
+           doc.setFillColor(0, 0, 0, 0.4);
+           doc.rect(260, 580, 140, 20, 'F');
+           doc.setTextColor(255, 255, 255);
+           doc.setFontSize(8);
+           doc.text("REAL LIFE SUPERHEROES AI", 270, 592);
+        } else if (userPlan === 'agency' && customBranding) {
+           doc.setFillColor(0, 0, 0, 0.6);
+           doc.rect(0, 580, 400, 20, 'F');
+           doc.setTextColor(255, 255, 255);
+           doc.setFontSize(8);
+           doc.text(customBranding.toUpperCase(), 200, 592, { align: 'center' });
+        }
+
+        // Narrative Overlay
+        if (face.type === 'story' && face.narrative && face.narrative.caption) {
+          doc.setFillColor(255, 255, 255, 0.95);
+          doc.setDrawColor(0, 0, 0);
+          doc.setLineWidth(1.5);
+          doc.rect(30, 30, 340, 45, 'FD');
+          doc.setTextColor(0, 0, 0);
+          doc.setFontSize(11);
+          doc.text(face.narrative.caption, 40, 48, { maxWidth: 320 });
+        }
+      }
+    });
+
+    doc.save(`${heroName.replace(/\s+/g, '_') || 'Hero'}_Multiverse_Comic.pdf`);
   };
 
   const launchStory = async () => {
@@ -211,7 +289,7 @@ const App: React.FC = () => {
   };
 
   const clearPersistence = () => {
-    if (confirm("Wipe all locally stored hero data?")) {
+    if (confirm("Wipe all locally stored hero data and cache? This fixes black screens.")) {
         localStorage.clear();
         window.location.reload();
     }
@@ -227,6 +305,7 @@ const App: React.FC = () => {
             setUserPlan(plan);
             if (branding) setCustomBranding(branding);
             setShowPricing(false);
+            setTimeout(() => handleExportPDF(), 600);
           }}
           onClose={() => setShowPricing(false)}
         />
@@ -234,8 +313,8 @@ const App: React.FC = () => {
       
       {isStarted && !showSetup && (
           <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex gap-4 bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border-2 border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.3)]">
-             <button onClick={resetApp} className="text-white font-comic hover:text-yellow-400 pr-4 border-r border-white/20">NEW STORY</button>
-             <button onClick={() => setShowPricing(true)} className="bg-red-600 text-white font-comic px-4 py-1 rounded-full">EXPORT PDF</button>
+             <button onClick={resetApp} className="text-white font-comic hover:text-yellow-400 pr-4 border-r border-white/20 uppercase tracking-widest text-sm">New Issue</button>
+             <button onClick={() => setShowPricing(true)} className="bg-red-600 text-white font-comic px-6 py-1 rounded-full hover:bg-red-500 transition-colors uppercase tracking-widest text-sm">Download PDF</button>
           </div>
       )}
 
@@ -246,8 +325,8 @@ const App: React.FC = () => {
           villainName={villainName} villainDesc={villainDesc}
           selectedGenre={selectedGenre} selectedLanguage={selectedLanguage} customPremise={customPremise}
           richMode={richMode} storyLength={storyLength}
-          onHeroUpload={async (file) => { const b = await fileToBase64(file); setHero({ base64: b, desc: "Hero", name: heroName }); }}
-          onFriendUpload={async (file) => { const b = await fileToBase64(file); setFriend({ base64: b, desc: "Sidekick", name: friendName }); }}
+          onHeroUpload={async (file) => { const b = await resizeImage(file, 512, 512); setHero({ base64: b, desc: "Hero", name: heroName }); }}
+          onFriendUpload={async (file) => { const b = await resizeImage(file, 512, 512); setFriend({ base64: b, desc: "Sidekick", name: friendName }); }}
           onHeroNameChange={setHeroName} onFriendNameChange={setFriendName}
           onVillainNameChange={setVillainName} onVillainDescChange={setVillainDesc}
           onGenreChange={setSelectedGenre} onLanguageChange={setSelectedLanguage}
@@ -274,7 +353,7 @@ const App: React.FC = () => {
           customBranding={customBranding}
       />
       <LegalFooter />
-      <button onClick={clearPersistence} className="fixed bottom-4 left-4 z-[300] text-[8px] text-white/10 hover:text-red-500 font-mono transition-colors">WIPE CACHE</button>
+      <button onClick={clearPersistence} className="fixed bottom-4 left-4 z-[300] text-[10px] text-white/10 hover:text-red-500 font-mono transition-colors uppercase tracking-[2px]">Reset Demo Cache</button>
     </div>
   );
 };
