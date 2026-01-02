@@ -1,10 +1,9 @@
 
-const CACHE_NAME = 'superheroes-cache-v2';
+const CACHE_NAME = 'superheroes-cache-v3';
 const ASSETS = [
   '/',
   '/index.html',
-  '/index.css',
-  '/index.tsx'
+  '/index.css'
 ];
 
 self.addEventListener('install', (event) => {
@@ -25,6 +24,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Always try network first for the entry script to avoid source-code-injection issues in dev
+  if (event.request.url.includes('.tsx') || event.request.url.includes('.ts')) {
+     return;
+  }
+  
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       return cachedResponse || fetch(event.request);

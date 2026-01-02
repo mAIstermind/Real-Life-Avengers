@@ -3,7 +3,7 @@
   "name": "Real Life SuperHeroes",
   "short_name": "SuperHeroes",
   "description": "Transform into a hero with AI-powered mystical storytelling.",
-  "start_url": ".",
+  "start_url": "/index.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
