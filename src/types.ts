@@ -1,4 +1,3 @@
-
 export const DEFAULT_MAX_STORY_PAGES = 6;
 export const INITIAL_PAGES = 2;
 export const GATE_PAGE = 2;

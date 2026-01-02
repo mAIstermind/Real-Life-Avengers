@@ -1,4 +1,3 @@
-
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -33,10 +32,10 @@ const App: React.FC = () => {
   const [showIntro, setShowIntro] = useState(true);
   const [showPricing, setShowPricing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportProgress, setExportProgress] = useState(0);
+
   const [userPlan, setUserPlan] = useState<UserPlan>(() => {
-    try {
-      return (localStorage.getItem('user_plan') as UserPlan) || 'free';
-    } catch { return 'free'; }
+    try { return (localStorage.getItem('user_plan') as UserPlan) || 'free'; } catch { return 'free'; }
   });
   const [customBranding, setCustomBranding] = useState(() => {
      try { return localStorage.getItem('custom_branding') || ''; } catch { return ''; }
@@ -82,7 +81,7 @@ const App: React.FC = () => {
       if (hero) localStorage.setItem('hero_data', JSON.stringify(hero));
       if (friend) localStorage.setItem('friend_data', JSON.stringify(friend));
     } catch (e) {
-      console.warn("Storage quota exceeded - clearing older history to make room.");
+      console.warn("Storage quota exceeded.");
     }
   }, [heroName, friendName, villainName, villainDesc, selectedGenre, customPremise, richMode, storyLength, hero, friend, userPlan, customBranding]);
 
@@ -101,9 +100,11 @@ const App: React.FC = () => {
 
   const handleAPIError = (e: any) => {
     const msg = String(e);
-    if (msg.includes('Requested entity was not found') || msg.toLowerCase().includes('permission denied')) {
+    if (msg.includes('Requested entity was not found') || msg.toLowerCase().includes('permission denied') || msg.toLowerCase().includes('api_key')) {
       setShowApiKeyDialog(true);
+      return true;
     }
+    return false;
   };
 
   const resizeImage = (file: File, maxWidth: number, maxHeight: number): Promise<string> => {
@@ -165,7 +166,7 @@ const App: React.FC = () => {
         return parsed as Beat;
     } catch (e) {
         handleAPIError(e);
-        return { caption: "...", scene: "Action scene.", focus_char: 'hero', choices: [] };
+        throw e;
     }
   };
 
@@ -189,19 +190,30 @@ const App: React.FC = () => {
           config: { imageConfig: { aspectRatio: '3:4' } }
         });
         const part = res.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-        return part?.inlineData?.data ? `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` : '';
-    } catch (e) { handleAPIError(e); return ''; }
+        if (!part) throw new Error("No image part in response");
+        return part.inlineData ? `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` : '';
+    } catch (e) {
+        handleAPIError(e);
+        throw e;
+    }
   };
 
   const handleExportPDF = async () => {
-    if (comicFaces.length === 0) {
-      alert("Multiverse is empty. Launch a story first.");
+    const pendingPages = comicFaces.filter(f => f.isLoading);
+    if (pendingPages.length > 0) {
+      alert(`The multiverse is still being inked! Wait for all ${comicFaces.length} panels to manifest.`);
+      return;
+    }
+
+    const validVisuals = comicFaces.filter(f => f.imageUrl && f.imageUrl.length > 100);
+    if (validVisuals.length === 0) {
+      alert("No visuals were generated. The multiverse is empty.");
       return;
     }
 
     setIsExporting(true);
-    // Add a slight delay to allow the loading overlay to render on mobile
-    await new Promise(r => setTimeout(r, 100));
+    setExportProgress(0);
+    await new Promise(r => setTimeout(r, 800));
 
     try {
       const doc = new jsPDF({
@@ -213,8 +225,11 @@ const App: React.FC = () => {
       const sortedFaces = [...comicFaces].sort((a, b) => (a.pageIndex || 0) - (b.pageIndex || 0));
       let pagesAdded = 0;
 
-      for (const face of sortedFaces) {
-        if (face.imageUrl && !face.isLoading) {
+      for (let i = 0; i < sortedFaces.length; i++) {
+        const face = sortedFaces[i];
+        setExportProgress(Math.round(((i + 1) / sortedFaces.length) * 100));
+        
+        if (face.imageUrl) {
           if (pagesAdded > 0) doc.addPage([400, 600], 'portrait');
           
           doc.setFillColor(0, 0, 0);
@@ -226,10 +241,9 @@ const App: React.FC = () => {
           const format = formatMatch ? formatMatch[1].toUpperCase() : 'JPEG';
           
           try {
-            // Using MEDIUM compression to balance quality and mobile memory usage
             doc.addImage(base64Data, format as any, 0, 0, 400, 600, undefined, 'MEDIUM');
           } catch (e) {
-            console.error(`Error adding image for page ${face.pageIndex}:`, e);
+            console.error("PDF Image add failed", e);
           }
           
           if (userPlan === 'free') {
@@ -256,17 +270,16 @@ const App: React.FC = () => {
             doc.text(face.narrative.caption, 40, 48, { maxWidth: 320 });
           }
           pagesAdded++;
+          await new Promise(r => requestAnimationFrame(r));
         }
       }
 
-      if (pagesAdded === 0) {
-        alert("No completed pages to export. Please wait for generation to finish.");
-      } else {
-        doc.save(`${heroName.replace(/\s+/g, '_') || 'Hero'}_Multiverse_Comic.pdf`);
+      if (pagesAdded > 0) {
+        doc.save(`${heroName.replace(/\s+/g, '_') || 'Hero'}_Multiverse.pdf`);
       }
     } catch (err) {
-      console.error("PDF generation failed:", err);
-      alert("Failed to generate PDF. Your device memory might be low.");
+      console.error("Archive failed", err);
+      alert("Archive Failed. Device memory may be restricted.");
     } finally {
       setIsExporting(false);
     }
@@ -274,36 +287,80 @@ const App: React.FC = () => {
 
   const launchStory = async () => {
     if (!heroRef.current) { alert("Recruit a hero first!"); return; }
+    
     const hasKey = await validateApiKey();
     if (!hasKey) return;
+
+    if (!process.env.API_KEY || process.env.API_KEY === 'undefined') {
+       setShowApiKeyDialog(true);
+       return;
+    }
+
     setIsTransitioning(true);
-    const faces: ComicFace[] = [
+    
+    const initialFaces: ComicFace[] = [
         { id: 'cover', type: 'cover', choices: [], isLoading: true, pageIndex: 0 },
         ...Array.from({ length: storyLength }, (_, i) => ({ id: `p${i+1}`, type: 'story' as const, choices: [], isLoading: true, pageIndex: i+1 })),
         { id: 'back', type: 'back_cover', choices: [], isLoading: true, pageIndex: storyLength+1 }
     ];
-    setComicFaces(faces);
-    historyRef.current = faces;
-    generateSinglePage('cover', 0, 'cover');
-    setTimeout(async () => {
+    
+    setComicFaces(initialFaces);
+    historyRef.current = initialFaces;
+
+    try {
+        // 1. Cover
+        await generateSinglePage('cover', 0, 'cover');
+        
+        // 2. Transition View
         setIsStarted(true);
         setShowSetup(false);
         setIsTransitioning(false);
-        for (let i = 1; i <= storyLength; i++) await generateSinglePage(`p${i}`, i, 'story');
-        generateSinglePage('back', storyLength+1, 'back_cover');
-    }, 1100);
+
+        // 3. Sequentially await all story pages
+        for (let i = 1; i <= storyLength; i++) {
+            await generateSinglePage(`p${i}`, i, 'story');
+        }
+
+        // 4. Back Cover
+        await generateSinglePage('back', storyLength+1, 'back_cover');
+        
+    } catch (e) {
+        console.error("Multiverse sequence aborted", e);
+        setIsTransitioning(false);
+        alert("The multiverse failed to assemble. Check your API key or connection.");
+    }
   };
 
   const generateSinglePage = async (faceId: string, pageNum: number, type: ComicFace['type']) => {
-    let beat: Beat = { scene: "", choices: [], focus_char: 'other' };
-    if (type !== 'cover' && type !== 'back_cover') { beat = await generateBeat(historyRef.current, pageNum % 2 === 0, pageNum, false); }
-    updateFaceState(faceId, { narrative: beat });
-    const url = await generateImage(beat, type);
-    updateFaceState(faceId, { imageUrl: url, isLoading: false });
+    try {
+        let beat: Beat = { scene: "A placeholder scene.", choices: [], focus_char: 'other' };
+        if (type !== 'cover' && type !== 'back_cover') { 
+            beat = await generateBeat(historyRef.current, pageNum % 2 === 0, pageNum, false); 
+        } else if (type === 'cover') {
+            beat = { scene: `Cinematic cover art for ${heroName || 'a new hero'} in a ${selectedGenre} universe.`, choices: [], focus_char: 'hero' };
+        } else {
+            beat = { scene: `Final cinematic end panel for ${heroName || 'the hero'}'s journey.`, choices: [], focus_char: 'hero' };
+        }
+        
+        updateFaceState(faceId, { narrative: beat });
+        const url = await generateImage(beat, type);
+        
+        if (!url) throw new Error("Image failed");
+        
+        updateFaceState(faceId, { imageUrl: url, isLoading: false });
+    } catch (e) {
+        console.error(`Page ${faceId} failed`, e);
+        updateFaceState(faceId, { isLoading: false });
+        throw e; // Rethrow to stop the main loop if required
+    }
   };
 
   const updateFaceState = (id: string, updates: Partial<ComicFace>) => {
-      setComicFaces(prev => prev.map(f => f.id === id ? { ...f, ...updates } : f));
+      setComicFaces(prev => {
+          const next = prev.map(f => f.id === id ? { ...f, ...updates } : f);
+          historyRef.current = next;
+          return next;
+      });
   };
 
   const resetApp = () => { 
@@ -315,23 +372,21 @@ const App: React.FC = () => {
     }
   };
 
-  const clearPersistence = () => {
-    if (confirm("Wipe all locally stored hero data? This is the best way to fix errors.")) {
-        localStorage.clear();
-        window.location.reload();
-    }
-  };
-
   return (
     <div className="comic-scene">
       {showIntro && <Intro onComplete={() => setShowIntro(false)} />}
       {showApiKeyDialog && <ApiKeyDialog onContinue={handleApiKeyDialogContinue} />}
       
       {isExporting && (
-        <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/90 backdrop-blur-xl">
-           <div className="w-24 h-24 border-8 border-red-600 border-t-white rounded-full animate-spin mb-8 shadow-[0_0_30px_rgba(220,38,38,0.5)]"></div>
-           <h2 className="font-comic text-5xl text-white uppercase tracking-tighter">ARCHIVING MULTIVERSE</h2>
-           <p className="font-mono text-gray-500 text-xs mt-4 uppercase tracking-[4px]">Rendering Comic Panels to PDF...</p>
+        <div className="fixed inset-0 z-[1000] flex flex-col items-center justify-center bg-black/95 backdrop-blur-3xl p-10 text-center">
+           <div className="relative w-40 h-40 mb-12">
+              <div className="absolute inset-0 border-8 border-red-600/20 rounded-full"></div>
+              <div className="absolute inset-0 border-8 border-red-600 border-t-white rounded-full animate-spin shadow-[0_0_50px_rgba(220,38,38,0.6)]"></div>
+              <div className="absolute inset-0 flex items-center justify-center font-comic text-4xl text-white">{exportProgress}%</div>
+           </div>
+           <h2 className="font-comic text-6xl text-white uppercase tracking-tighter mb-4 animate-pulse">ARCHIVING MULTIVERSE</h2>
+           <p className="font-mono text-red-500 text-sm uppercase tracking-[6px] mb-2">GENERATING PDF DATA</p>
+           <p className="font-sans text-gray-500 text-xs uppercase tracking-widest italic max-w-sm">Synchronizing cinematic panels to portable document...</p>
         </div>
       )}
 
@@ -341,8 +396,7 @@ const App: React.FC = () => {
             setUserPlan(plan);
             if (branding) setCustomBranding(branding);
             setShowPricing(false);
-            // Longer delay to ensure modal is gone and memory is freed for PDF gen
-            setTimeout(() => handleExportPDF(), 1000);
+            setTimeout(() => handleExportPDF(), 1200);
           }}
           onClose={() => setShowPricing(false)}
         />
@@ -351,7 +405,13 @@ const App: React.FC = () => {
       {isStarted && !showSetup && (
           <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] flex gap-4 bg-black/80 backdrop-blur-md px-6 py-3 rounded-full border-2 border-red-600 shadow-[0_0_20px_rgba(220,38,38,0.3)]">
              <button onClick={resetApp} className="text-white font-comic hover:text-yellow-400 pr-4 border-r border-white/20 uppercase tracking-widest text-sm">New Issue</button>
-             <button onClick={() => setShowPricing(true)} className="bg-red-600 text-white font-comic px-6 py-1 rounded-full hover:bg-red-500 transition-colors uppercase tracking-widest text-sm">Download PDF</button>
+             <button 
+               onClick={() => setShowPricing(true)} 
+               disabled={comicFaces.some(f => f.isLoading)}
+               className="bg-red-600 text-white font-comic px-6 py-1 rounded-full hover:bg-red-500 disabled:bg-gray-700 disabled:opacity-50 transition-all uppercase tracking-widest text-sm"
+             >
+                {comicFaces.some(f => f.isLoading) ? 'INKING...' : 'Download PDF'}
+             </button>
           </div>
       )}
 
@@ -390,7 +450,12 @@ const App: React.FC = () => {
           customBranding={customBranding}
       />
       <LegalFooter />
-      <button onClick={clearPersistence} className="fixed bottom-4 left-4 z-[300] text-[10px] text-white/20 hover:text-red-500 font-mono transition-colors uppercase tracking-[2px]">Reset Demo Cache</button>
+      <button 
+        onClick={() => { localStorage.clear(); window.location.reload(); }} 
+        className="fixed bottom-4 left-4 z-[300] text-[10px] text-white/10 hover:text-red-500 font-mono transition-colors uppercase tracking-[2px]"
+      >
+        Clear App Cache
+      </button>
     </div>
   );
 };
